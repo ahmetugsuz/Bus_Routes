@@ -26,12 +26,13 @@ app = Flask(__name__)
 conn_pool = psycopg2.pool.SimpleConnectionPool(
     minconn=1,
     maxconn=10,
-    host="my-db",
+    host="172.17.0.2",
     port=5432,
     database="bus_data",
     user="ahmettugsuz",
-    password="bus_finland",
+    password="mypassword",
 )
+
 
 geolocator = Nominatim(user_agent="my_app") # creating a geolocater variable on my app
 
@@ -312,7 +313,7 @@ def buses_near_me():
 
 # This method allows ut to define radius and the location passed in to the url, its just a variation of the buses_within_radius()
 # This is also easier to test, results can be shown easier   
-@app.route('/buses_within_radius/<string:street>/<string:city>/<int:radius>', methods=['GET'])
+@app.route('/buses_within_radius/<string:street>/<string:city>/<int:radius>')
 def buses_within_radius(street, city, radius):
     """ 
     - input: street and city name to get the location of the user, and a radius to show bus near user
@@ -341,19 +342,23 @@ def buses_within_radius(street, city, radius):
         lon = data['lon']
         
         # Selecting the latest 'tsi' for each vehicle number, within a given radius
-        cursor.execute(""" 
-            SELECT bs.*, bus.operator, stop.stop_name FROM bus_status AS bs
-            LEFT JOIN bus ON bus.vehicle_number = bs.vehicle_number
-            LEFT JOIN stop ON stop.id = bs.stop_id
-            INNER JOIN (
-                SELECT vehicle_number, MAX(tsi) AS max_tsi
-                FROM bus_status 
-                GROUP BY vehicle_number
-            ) bs_max ON bs.vehicle_number = bs_max.vehicle_number AND bs.tsi = bs_max.max_tsi
-            WHERE earth_distance(ll_to_earth(bs.latitude, bs.longitude), ll_to_earth(%s, %s)) <= %s
-        """, (lat, lon, radius))
-        results = cursor.fetchall()
-
+        try:
+            cursor.execute(""" 
+                SELECT bs.*, bus.operator, stop.stop_name FROM bus_status AS bs
+                LEFT JOIN bus ON bus.vehicle_number = bs.vehicle_number
+                LEFT JOIN stop ON stop.id = bs.stop_id
+                INNER JOIN (
+                    SELECT vehicle_number, MAX(tsi) AS max_tsi
+                    FROM bus_status 
+                    GROUP BY vehicle_number
+                ) bs_max ON bs.vehicle_number = bs_max.vehicle_number AND bs.tsi = bs_max.max_tsi
+                WHERE earth_distance(ll_to_earth(bs.latitude, bs.longitude), ll_to_earth(%s, %s)) <= %s
+            """, (lat, lon, radius))
+            results = cursor.fetchall()
+        except Exception as e:
+            # Return an error message in JSON format
+            error_message = {"error": str(e)}
+            return jsonify(error_message), 500
 
         if len(results) == 0:
             return jsonify({"message": "No bus found"})
@@ -400,6 +405,7 @@ def sigint_handler(signal, frame):
 signal.signal(signal.SIGINT, sigint_handler)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0', port=5000)
+
 
 

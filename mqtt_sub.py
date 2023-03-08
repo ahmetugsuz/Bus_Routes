@@ -76,10 +76,9 @@ class MQTTSubscriber:
         self.cur.execute("CREATE TABLE IF NOT EXISTS bus (vehicle_number INTEGER PRIMARY KEY, operator TEXT)") # vehicle number is the uynique key, assuming that there is no other duplicates, and only one operator owns the vehicle
         self.cur.execute("CREATE TABLE IF NOT EXISTS bus_status (id SERIAL PRIMARY KEY, vehicle_number INTEGER NOT NULL REFERENCES bus(vehicle_number), tsi INTEGER NOT NULL, utc_timestamp TIME, route_number TEXT, current_location TEXT," +
         "latitude FLOAT, longitude FLOAT, stop_id INTEGER REFERENCES stop(id), destination TEXT)")
+ 
+        self.conn.commit()
         """
-
-            
-        #self.conn.commit()
 
 
     def on_connect(self, client, userdata, flags, rc):
